@@ -71,7 +71,6 @@ class Data:
 FACTOR = 10000.
 
 def run (mgr, fd):
-  signal.signal (signal.SIGTERM, sigterm)
   select.select ((fd,), (), ())
   data = mgr.read ()
 
