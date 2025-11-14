@@ -44,7 +44,7 @@ class FileBackend (BaseBackend):
       self._determine_stat_interval ()
 
   def _tempfile (self):
-    return NamedTemporaryFile (dir = self.dir_path)
+    return NamedTemporaryFile (dir = self.dir_path, mode = 'w+b')
 
   def copy (self):
     return FileBackend (self.path, self.lock_path)
