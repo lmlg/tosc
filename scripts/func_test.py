@@ -8,12 +8,7 @@ import time
 sys.path.append ('..')
 import tosc
 
-stop_flag = False
 RUNTIME = 30.
-
-def sigterm (sig, frame):
-  global stop_flag
-  stop_flag = True
 
 class Data:
   def __init__ (self, balance):
@@ -76,7 +71,6 @@ class Data:
 FACTOR = 10000.
 
 def run (mgr, fd):
-  signal.signal (signal.SIGTERM, sigterm)
   select.select ((fd,), (), ())
   data = mgr.read ()
 
@@ -100,7 +94,7 @@ def run (mgr, fd):
 
   funcs = (deposit, withdraw, check)
 
-  while not stop_flag:
+  while True:
     val = int (FACTOR * random.random ())
     funcs[val % 3] (val)
 
@@ -131,9 +125,12 @@ def main ():
     time.sleep (RUNTIME)
   finally:
     for pid in pids:
-      os.kill (pid, signal.SIGTERM)
+      os.kill (pid, signal.SIGKILL)
     for pid in pids:
       os.wait ()
+
+    # One last consistency check.
+    mgr.read().check ()
 
 if __name__ == '__main__':
   main ()
