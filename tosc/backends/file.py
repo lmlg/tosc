@@ -29,6 +29,19 @@ _LOCAL_FS = frozenset ([
   0x58465342,   # xfs
 ])
 
+class _NamedTemporaryFile (NamedTemporaryFile):
+  def __init__ (self, dir):
+    super().__init__ (mode = 'w+b', dir = dir)
+
+  def __exit__ (self, *args):
+    try:
+      super().__exit__ (*args)
+    except FileNotFoundError:
+      # The tempfile was renamed and no longer exists.
+      # On older Python versions, this caused issues,
+      # so patch it out here.
+      pass
+
 class FileBackend (BaseBackend):
   def __init__ (self, path, lock_path = None):
     super().__init__ ()
@@ -44,7 +57,7 @@ class FileBackend (BaseBackend):
       self._determine_stat_interval ()
 
   def _tempfile (self):
-    return NamedTemporaryFile (dir = self.dir_path, mode = 'w+b')
+    return _NamedTemporaryFile (self.dir_path)
 
   def copy (self):
     return FileBackend (self.path, self.lock_path)
