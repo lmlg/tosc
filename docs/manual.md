@@ -54,7 +54,7 @@ As of the time of this writing, _tosc_ supports 3 backends:
   truly distributed way.
 
 * Ceph-backend (_tosc.CephBackend_): The most scalable backend available, this
-  backend is only optionally built, in the presence of the _librbd_ and
+  one is only optionally built, in the presence of the _librbd_ and
   _librados_ libraries for Python.
 
 
@@ -151,8 +151,8 @@ class BackendBase
 
   * In addition to storing data, they must maintain the _version_ of the data.
     The version is a numerical value that is unique to a block of data. Note
-    that versions don't need to be monotonically increasing (as with databases),
-    but for simplicity, some backends may implement them that way.
+    that versions don't need to be monotonically increasing, but for simplicity,
+    some backends may implement them that way.
 
   * They must allow atomic replacements of data. In addition, when modifying the
     data, the version that identifies the new data must also be atomically set.
