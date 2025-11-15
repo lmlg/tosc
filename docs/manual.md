@@ -289,3 +289,14 @@ class Manager (backend)
   Change the currently stored object, but only if the version matches. See the
   documentation for _BackendBase.try_write_ for more details on the semantics.
   Returns True if successful, False otherwise.
+
+```python
+def transactional (manager, retries = None, timeout = None)
+```
+
+  Function decorator that makes it so that the decorated function will execute
+  within a transaction for the passed manager until the transaction succeeds or
+  the number of retries (if not None) is reached, or the timeout (if not None)
+  is elapsed. If passed, the parameter `retries` must be a positive integer,
+  whereas `timeout` must be an integer or float that indicates the number of
+  seconds (from it, a deadline in the future will be computed).

@@ -32,8 +32,7 @@ class Transaction:
     """
     Undo the changes proposed by the transaction.
     """
-    dmgr = self.dmgr
-    objmap = dmgr.objmap
+    objmap = self.dmgr.objmap
     for xid, prev in self.objs.items ():
       prev_obj, prev_val = prev
       objmap[prev_obj.xid].subobj = prev_obj.subobj = prev_val
@@ -52,7 +51,11 @@ class Transaction:
     for xid, val in objs.items ():
       outmap[xid].subobj = val[0].subobj
 
-    ret = dmgr.try_write (dmgr.root_obj, self.version)
+    try:
+      ret = dmgr.try_write (dmgr.root_obj, self.version)
+    except Exception:
+      ret = False
+
     if not ret:
       self.rollback ()
 

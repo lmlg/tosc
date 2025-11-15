@@ -10,12 +10,14 @@ class InprocData:
     self.notifier = None
 
 class InprocBackend (BaseBackend):
-  def __init__ (self, data = None):
+  def __init__ (self):
     super().__init__ ()
-    self.data = InprocData () if data is None else data
+    self.data = InprocData ()
 
   def copy (self):
-    return InprocBackend (self.data)
+    ret = InprocBackend ()
+    ret.data = self.data
+    return ret
 
   def read (self):
     data = self.data

@@ -31,14 +31,14 @@ class BaseBackend:
     Returns a tuple of (VERSION, DATA) from the backend. If no data has
     been stored, this method must return (None, None).
     """
-    return NotImplemented
+    raise NotImplementedError ('backend must implement "read"')
 
   def write (self, new):
     """
     Atomically replace the data stored in the backend and return the new
     version. The backend may be storing no data when this method is called.
     """
-    return NotImplemented
+    raise NotImplementedError ('backend must implement "write"')
 
   def try_write (self, new, expected):
     """
@@ -49,7 +49,7 @@ class BaseBackend:
     Note that `expected` may be 0, in which case it means `expect no data
     to be stored at the call`.
     """
-    return NotImplemented
+    raise NotImplementedError ('backend must implement "try_write"')
 
   def target_wait (self):
     """
@@ -66,4 +66,4 @@ class BaseBackend:
     The backend is not required to implement precise notifications - Periodic
     polling is a perfectly reasonable choice.
     """
-    return NotImplemented
+    raise NotImplementedError ('backend must implement "target_wait"')
