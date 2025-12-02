@@ -39,6 +39,9 @@ class InprocBackend (BaseBackend):
       return self._notify (data, new)
 
   def try_write (self, new, expected):
+    if expected is None:
+      expected = 0
+
     data = self.data
     with data.lock:
       if data.version != expected:
@@ -51,5 +54,5 @@ class InprocBackend (BaseBackend):
 
     with data.lock:
       while version == data.version:
-        data.cond.wait (0.5)
+        data.cond.wait ()
       return version < data.version and data.notifier != self.unique_id

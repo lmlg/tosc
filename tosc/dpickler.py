@@ -92,6 +92,8 @@ def make_pickable (obj, dmgr):
     return make (obj, 0, dmgr)
 
   if isinstance (obj, DAny):
+    # The MRO looks something like this: [..., actual-type, DAny, object]
+    # As such, index -3 is the one to fetch to get the desired type.
     ty = ty.__mro__[-3]
 
   return _Wrapper (ty, _obj_attrs (obj), dmgr)

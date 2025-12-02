@@ -1,6 +1,7 @@
 from .dpickler import (DObject, DPickler, DUnpickler, make_pickable)
 from .transaction import Transaction
 
+from copy import deepcopy
 import io
 import threading
 import uuid
@@ -108,7 +109,7 @@ class Manager:
 
   def _refresh_locked (self, dfl):
     version, payload = self.backend.read ()
-    if not version:
+    if version is None:
       return dfl
     elif self.version >= version:
       return self.root_obj
@@ -190,3 +191,10 @@ class Manager:
 
   def __getstate__ (self):
     raise ValueError ('distributed managers must not be pickled')
+
+  def snapshot (self, dfl = None):
+    """
+    Create a snapshot of the current stored object.
+    """
+    with self.transaction ():
+      return dfl if self.root_obj is NIL else deepcopy (self.root_obj)

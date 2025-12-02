@@ -117,10 +117,8 @@ class CephBackend (BaseBackend):
     try:
       if expected is not None:
         wop.assert_version (expected)
-      elif not self.version:
-        wop.new (1)
       else:
-        wop.assert_version (self.version)
+        wop.new (1)
 
       wop.write (pack ("<Q", len (new)))
       wop.write (new, 8)

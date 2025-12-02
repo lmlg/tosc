@@ -7,9 +7,8 @@ from tempfile import NamedTemporaryFile
 from time import sleep
 import sys
 
-# Time in seconds to wait sleep before polling for a FS event.
-# The selected value will depend on whether the filesystem is
-# local or not.
+# Time in seconds to sleep before polling for a FS event.
+# The selected value will depend on whether the filesystem is local or not.
 _DFL_STAT_INTERVAL = 5
 _MAX_STAT_INTERVAL = 30
 _MIN_STAT_INTERVAL = 0.2
@@ -71,7 +70,7 @@ class FileBackend (BaseBackend):
       # the interface in the std lib doesn't have access to the
       # 'f_type' member, which is what we need.
       ret = check_output (['stat', '-f', '-c', '%t',
-                           os.path.dirname (self.path)],
+                          os.path.dirname (self.path)],
                           text = True, stderr = DEVNULL)
       fstype = int (ret.strip (), 16)
       if fstype in _LOCAL_FS:
@@ -100,7 +99,7 @@ class FileBackend (BaseBackend):
         version, _ = unpack ("<Q32s", file.read (40))
         return (version, file.read ())
     except FileNotFoundError:
-      return (0, None)
+      return (None, None)
 
   def link (self, tpath):
     os.rename (tpath, self.path)
@@ -114,6 +113,9 @@ class FileBackend (BaseBackend):
       return version
 
   def try_write (self, new, expected):
+    if expected is None:
+      expected = 0
+
     with self.lock, self._tempfile () as fm:
       version = self._get_version ()
       if version != expected:
@@ -132,7 +134,7 @@ class FileBackend (BaseBackend):
       with open (self.path, 'rb') as file:
         _, uid = unpack ("<Q32s", file.read (40))
         self._last_modified = os.fstat(file.fileno ()).st_mtime
-        return (prev is None) or (
-            self._last_modified > prev and uid != self.unique_id)
+        return uid != self.unique_id and (
+            (prev is None) or (self._last_modified > prev))
     except Exception:
       return False

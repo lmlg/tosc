@@ -2,50 +2,56 @@
 
 This library implements seamless distributed data structures for Python.
 The aim is to let users write their programs in a normal, Pythonic fashion,
-while at the same implementing all the constraints of a distributed system -
+while at the same maintaining all the constraints of a distributed system -
 i.e: Data is always consistent across all the nodes, and changes are only
 applied transactionally and atomically.
 
-## Basic concepts
+## Managers
 
-A normal workflow in _tosc_ is centered around the concept of a *Manager*, an
-entity that makes sure that objects are kept consistent when mutating their
-state. When instantiating managers, we need to select the *Backend* that will
-be in charge of maintaining the _shared data_ itself. We can think of the
-backend as an instance that is in charge of reading and writing data
-atomically, whereas the manager consumes that data and propagates the changes.
+The **Manager** is the central component in TOSC. It's responsible for:
 
-### Example workflow
+- Maintaining references to distributed objects
+- Handling (de)serialization using pickle
+- Tracking versions to detect conflicts
+- Running a background watcher thread to detect remote changes
+- Orchestrating transactions
 
-Here's a basic example program:
+Every distributed application using TOSC starts by creating a Manager:
 
 ```python
 
 import tosc
 
 # Instantiate a manager with a backend
-manager = tosc.Manager (tosc.FileBackend ('/tmp/some-file'))
+manager = tosc.Manager(tosc.FileBackend('/tmp/some-file'))
 
 # Write an object to the manager.
-manager.write (some_object (...))
+manager.write(some_object(...))
 
 # Retrieve the object that was written.
-obj = manager.read ()
+obj = manager.read()
 
 # The object can now be manipulated in any way. The changes made
 # to it will be applied transactionally, and any user holding
 # references will be notified of said changes.
 ```
 
-### Backends
+## Backends
+
+A **Backend** is a pluggable storage layer that provides atomic operations. All backends must implement:
+
+- `read()`: Atomically retrieve data and its version
+- `write(data)`: Atomically store data, returning new version
+- `try_write(data, expected_version)`: Conditional write (compare-and-swap)
+- `target_wait()`: Block until backend data changes (for the watcher thread)
 
 As of the time of this writing, _tosc_ supports 3 backends:
 
 * In-process backend (_tosc.InprocBackend_): This backend is only usable to
-  share data across threads in the same process. Although not truly
-  distributed, it's still useful if the user needs the properties of a
-  distributed system, such as the possibility of applying changes atomically
-  without the need for explicit threading primitives such as locks.
+  share data across threads in the same process. Although not truly distributed,
+  it's still useful if the user needs the properties of a distributed system,
+  such as the possibility of applying changes atomically without the need for
+  explicit threading primitives such as locks.
 
 * File-based backend (_tosc.FileBackend_): This backend stores the data in
   a regular file. Changes are made atomic by virtue of filesystem semantics.
@@ -57,36 +63,69 @@ As of the time of this writing, _tosc_ supports 3 backends:
   one is only optionally built, in the presence of the _librbd_ and
   _librados_ libraries for Python.
 
+## Versioning
 
-## What can be written through a Manager?
+Every piece of data stored through a Manager has an associated **version** (an integer). When data changes:
 
-As shown in the example above, we wrote some object to the instantiated Manager.
-But _what exactly_ can be written? In short, any Python builtin type can be
-shared, as well as any custom types, as long as they implement either the
-`__dict__` or `__slots__` member.
+1. The version increments
+2. The new version is stored atomically with the data
+3. Managers track versions to detect when data changes externally
 
-It should be noted that the objects that are fetched after being written are
-not identical type-wise. What this means is that if we write say, a list to
-a _Manager_, if we afterwards fetch it, we will _not_ receive an object of the
-same type. This is because the objects are wrapped to make sure that the new
-types have distributed semantics and can receive changes that are made by other
-processes in the distributed system.
+This versioning enables:
+
+- **Optimistic locking**: Detect conflicts without holding locks
+- **Conditional updates**: Only apply changes if no one else modified the data
+- **Change detection**: Know when to refresh cached objects
+
+## Transactions
+
+A **Transaction** is a context manager that:
+
+- Prevents external changes from being applied during its scope
+- Buffers all mutations to distributed objects
+- Commits changes atomically on exit
+- Rolls back on failure or conflict
+
+Transactions use optimistic locking: they succeed only if no other transaction modified the data concurrently.
+
+```python
+with manager.transaction() as tr:
+    # All mutations here apply atomically
+    obj['key'] = 'value'
+```
+
+## Distributed Types
+
+When you write a Python object through a Manager, TOSC wraps it in a distributed type:
+
+| Python Type | TOSC Wrapper | Description |
+|-------------|--------------|-------------|
+| `list` | `DList` | Distributed list |
+| `dict` | `DDict` | Distributed dictionary |
+| `set` | `DSet` | Distributed set |
+| `bytearray` | `DByteArray` | Distributed byte array |
+| Custom objects | `DAny` | Generic wrapper for objects with `__dict__` or `__slots__` |
+
+These wrappers intercept mutations and coordinate with the Manager to ensure consistency.
 
 ## About distributed semantics and transactions
 
-If we hold a distributed object and another process makes changes to it, we
-will _eventually_ receive a notification and apply said changes in oder to
-have the object display the updated state. This can lead to surprises as 
-objects change underneath us without notice. In order to avoid these kinds
-of surprises, we can make use of _transactions_.
+If we hold a distributed object and another process makes changes to it, the
+Manager will _eventually_ be notified and apply said changes, thereby providing
+an up-to-date view of the managed objects. This can lead to surprises as objects
+change underneath us without notice. In order to avoid these kinds of surprises,
+we can make use of _transactions_.
 
 For example:
 
 ```python
-obj = manager.read ()
+manager = tosc.Manager(backend)
+data = manager.read()
 
-with manager.transaction () as tr:
-  use_object_obj (obj)   # obj will not be affected by external changes.
+with manager.transaction():
+    data['key1'] = 'value1'
+    data['list'].append(42)
+    # All changes are commited atomically here
 ```
 
 As long as a transaction is ongoing, the manager will not apply any changes
@@ -95,41 +134,96 @@ any distributed object, then once the transaction finishes, the manager will
 see to it that the changes are propagated:
 
 ```python
-obj = manager.read ()
+obj = manager.read()
 
-with manager.transaction () as tr:
-  mutate_object (obj)
+with manager.transaction() as tr:
+  mutate_object(obj)
   # once the transaction ends, the changes to `obj` will be sent through
   # the backend and to the other nodes in the system.
 ```
 
-### Conflics with transactions
-
-The above example leaves open the question of what happens if 2 different nodes
-attempt to change the state at the same time. In that case, _tosc_ ensures that
-only one process will succeed, and the others will see an exception raised,
-indicating failure (_TransactionError_).
-
-Naturally, it's a bit annoying to have transactions fail and having to retry
-them manually. To avoid that, the library provides a decorator to do that
-automatically:
+Note also that transactions may be _implicit_:
 
 ```python
-manager = tosc.Manager (...)
+obj.write([1, 2, 3])
 
-@tosc.transactional (manager)
-def mutate_object (obj):
-  # apply any changes to `obj` if conditions are met.
-
-obj = manager.read ()
-
-# Here, the function will be called repeteadly inside a transaction
-# until no error is raised.
-mutate_obj (obj)
+lst = obj.read()
+lst.append(4)   # This is an implicit transaction and thus may fail (see below)
 ```
 
-As seen here, the mutator function is decorated so that it's retried in case
-another process was just in the process of comitting a transaction itself.
+Transactions can be nested. Only the outermost transaction commits changes:
+
+```python
+with manager.transaction():
+    data['a'] = 1
+
+    with manager.transaction():  # Nested
+        data['b'] = 2
+    # Inner transaction doesn't commit yet
+
+    data['c'] = 3
+# All changes commit here atomically
+```
+
+### Handling Transaction Failures
+
+Transactions can fail if another process commits changes first:
+
+```python
+data = manager.read()
+
+try:
+    with manager.transaction():
+        data['counter'] += 1
+except tosc.TransactionError:
+    print("Transaction failed - another process modified the data")
+```
+
+### The @transactional Decorator
+
+For automatic retry on conflicts, use the `@transactional` decorator:
+
+```python
+@tosc.transactional(manager)
+def increment_counter(data):
+    data['counter'] += 1
+
+data = manager.read()
+increment_counter(data)  # Retries automatically on conflict
+```
+
+**With retry limit**:
+
+```python
+@tosc.transactional(manager, retries=10)
+def risky_operation(data):
+    # Will retry up to 10 times
+    data['value'] = expensive_computation()
+```
+
+**With timeout**:
+
+```python
+@tosc.transactional(manager, timeout=5.0)
+def timed_operation(data):
+    # Will retry for up to 5 seconds
+    data['timestamp'] = time.time()
+```
+
+**Both can be used at the same time**:
+
+```python
+@tosc.transactional(manager, retries=20, timeout=10.0)
+def safe_operation(data):
+    # Retries up to 20 times or 10 seconds, whichever comes first
+    update_data(data)
+```
+
+### Transaction Exceptions
+
+- `TransactionError`: Base exception for transaction failures
+- `TransactionRetryError`: Raised when retry limit is reached
+- `TransactionTimeoutError`: Raised when timeout is exceeded
 
 ## Wire format
 
@@ -151,8 +245,7 @@ class BackendBase
 
   * In addition to storing data, they must maintain the _version_ of the data.
     The version is a numerical value that is unique to a block of data. Note
-    that versions don't need to be monotonically increasing, but for simplicity,
-    some backends may implement them that way.
+    that versions must be incremental, but they don't need to be monotonic.    
 
   * They must allow atomic replacements of data. In addition, when modifying the
     data, the version that identifies the new data must also be atomically set.
@@ -201,8 +294,10 @@ class BackendBase
 class InprocBackend
 ```
 
-  Implements an in-process backend for a Manager. Instances of this class are
-  only useful to share data between threads of the same process.
+  Implements an in-process backend for a Manager. Although not truly
+  distributed, this backend is still useful to share complex data atomically
+  across multiple threads. It can also be used for testing and to get a better
+  understanding of distributed semantics and constraints.
 
 ```python
 class FileBackend (file_path, lock_path = None)
@@ -212,6 +307,16 @@ class FileBackend (file_path, lock_path = None)
   The `lock_path` argument is optional and indicates the path for the lock that
   is used to synchronize access across the different process in the distributed
   system.
+
+  The features of this backend depend largely on the filesystem being used. If
+  the filesystem is only backed by memory (as is the case of files in /dev/shm),
+  then the writes will not be persistent. On the other hand, if the filesystem
+  if network-based (as with NFS or CephFS), then the backend can be used across
+  nodes in different machines.
+
+  Typically, this backend would be used to synchronize and share data with
+  unrelated processes in the same machine. It's specially suited to share
+  configuration and apply updates seamlessly.
 
 ```python
 class CephBackend (client, key, mon_host, pool_name obj_name, max_retries = 100)
@@ -230,6 +335,11 @@ class CephBackend (client, key, mon_host, pool_name obj_name, max_retries = 100)
                  data, or when implementing the `try_write` method. In roder
                  to avoid indefinite starvation, these will only be retried
                  for `max_retries` times.
+
+  This backend is exceptionally suited for large-scale distributed systems,
+  and for production environments where a Ceph cluster is already up and
+  running. Applications that require high-availability can make good use of
+  this backend as well.
 
 ```python
 class Manager (backend)
@@ -261,6 +371,8 @@ class Manager (backend)
   will not be applied, and mutations done to distributed objects will be
   delayed until the transaction exits.
 
+  Transactions are context-managers.
+
 ```python
   def read (self) -> object
 ```
@@ -289,6 +401,13 @@ class Manager (backend)
   Change the currently stored object, but only if the version matches. See the
   documentation for _BackendBase.try_write_ for more details on the semantics.
   Returns True if successful, False otherwise.
+
+```python
+  def snapshot (self) -> object
+```
+
+  Returns a snapshot of the currently stored object. Note that the returned
+  object is no longer distributed and will be of the original type.
 
 ```python
 def transactional (manager, retries = None, timeout = None)

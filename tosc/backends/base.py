@@ -4,9 +4,10 @@ class BaseBackend:
   features in order to be usable by tosc:
 
   - They have to maintain the version of the data they are storing. This
-    version must be a numerical value, but there are no additional constraints
-    on it (i.e: it doesn't need to be monotonic). The version itself may
-    be stored together with the data or independently of it.
+    version must be a numerical value that is incremented on each change,
+    but there are no additional constraints (i.e: it doesn't need to be
+    monotonic). The version itself may be stored together with the data or
+    independently of it.
 
   - The backend must allow atomic replacements of the data it's storing. As a 
     corollary from the above, replacing the data also means that the version
@@ -46,7 +47,7 @@ class BaseBackend:
     data with `new` if there's a match. Returns a tuple of (SUCCESS, VERSION),
     indicating whether there was a replacement and the current version.
 
-    Note that `expected` may be 0, in which case it means `expect no data
+    Note that `expected` may be None, in which case it means `expect no data
     to be stored at the call`.
     """
     raise NotImplementedError ('backend must implement "try_write"')

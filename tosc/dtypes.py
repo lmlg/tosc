@@ -1,4 +1,4 @@
-from copy import copy as shallow_copy
+from copy import copy as shallow_copy, deepcopy
 
 class DObject:
   BASE_TYPE = object
@@ -138,7 +138,7 @@ _MUTABLES = ('append', 'clear', 'extend', 'insert', 'pop', 'remove',
              '__setitem__', '__delitem__', '__iadd__', '__imul__',
              '__iand__', '__ior__', '__ixor__')
 
-def _make_dbuiltin (base, name):
+def _make_dbuiltin (base, name, dcopy = None):
   ret = type (name, (DObject,), {})
   for elem in dir (base):
     if elem in _SKIP_ATTRS:
@@ -154,12 +154,39 @@ def _make_dbuiltin (base, name):
       setattr (ret, elem, _make_method (attr, elem in _OPERATORS))
 
   ret.BASE_TYPE = base
+  if dcopy is not None:
+    ret.__deepcopy__ = dcopy
+
   return ret
 
-DList = _make_dbuiltin (list, 'DList')
-DSet = _make_dbuiltin (set, 'DSet')
-DDict = _make_dbuiltin (dict, 'DDict')
-DByteArray = _make_dbuiltin (bytearray, 'DByteArray')
+def _deepcopy_dlist (self, memo):
+  ret = []
+  memo[id (self)] = ret
+  for elem in self:
+    ret.append (deepcopy (elem, memo))
+  return ret
+
+def _deepcopy_dset (self, memo):
+  ret = set ()
+  memo[id (self)] = ret
+  for elem in self:
+    ret.add (deepcopy (elem, memo))
+  return ret
+
+def _deepcopy_ddict (self, memo):
+  ret = {}
+  memo[id (self)] = ret
+  for k, v in self.items ():
+    ret[deepcopy (k, memo)] = deepcopy (v, memo)
+  return ret
+
+def _deepcopy_dbytearray (self, _):
+  return self.subobj.copy ()
+
+DList = _make_dbuiltin (list, 'DList', _deepcopy_dlist)
+DSet = _make_dbuiltin (set, 'DSet', _deepcopy_dset)
+DDict = _make_dbuiltin (dict, 'DDict', _deepcopy_ddict)
+DByteArray = _make_dbuiltin (bytearray, 'DByteArray', _deepcopy_dbytearray)
 
 class DAny:
   """
@@ -173,6 +200,14 @@ class DAny:
 
   def __setstate__ (self, dmgr):
     pass
+
+  def __deepcopy__ (self, memo):
+    ty = type(self).__mro__[-3]
+    ret = ty.__new__ (ty)
+    memo[id (self)] = ret
+    for slot in self.__slots__:
+      setattr (ret, slot, deepcopy (getattr (self, slot), memo))
+    return ret
 
 class DDescriptor:
   """

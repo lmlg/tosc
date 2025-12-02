@@ -152,6 +152,9 @@ class Custom:
   def fn (self, arg):
     return (self.x, self.y, arg)
 
+  def __eq__ (self, other):
+    return self.x == other.x and self.y == other.y
+
 def test_pickle_custom ():
   mgr = _make_mgr ()
   c = Custom ('abc', [33])
@@ -257,3 +260,9 @@ def test_transaction_rollback_on_exc ():
     pass
 
   assert x == orig
+
+def test_snapshot ():
+  mgr = _make_mgr ()
+  c = Custom ([[1, 2], "abc"], None)
+  mgr.write (c)
+  assert c == mgr.snapshot ()
