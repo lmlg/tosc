@@ -163,3 +163,14 @@ class CephBackend (BaseBackend):
       return self._update_version () != prev
     except Exception:
       return False
+
+  def _lock_name (self):
+    return 'lock.%s' % self.obj_name
+
+  def exclusive_lock (self):
+    return self.ioctx.lock_exclusive (self.obj_name, self._lock_name (),
+                                      self.unique_id or "")
+
+  def exclusive_unlock (self):
+    return self.ioctx.unlock (self.obj_name, self._lock_name (),
+                              self.unique_id or "")

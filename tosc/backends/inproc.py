@@ -4,7 +4,7 @@ import threading
 class InprocData:
   def __init__ (self):
     self.version = 0
-    self.lock = threading.Lock ()
+    self.lock = threading.RLock ()
     self.cond = threading.Condition (self.lock)
     self.bvec = None
     self.notifier = None
@@ -56,3 +56,9 @@ class InprocBackend (BaseBackend):
       while version == data.version:
         data.cond.wait ()
       return version < data.version and data.notifier != self.unique_id
+
+  def exclusive_lock (self):
+    return self.data.lock.acquire ()
+
+  def exclusive_unlock (self):
+    return self.data.lock.release ()
