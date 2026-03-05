@@ -68,3 +68,22 @@ class BaseBackend:
     polling is a perfectly reasonable choice.
     """
     raise NotImplementedError ('backend must implement "target_wait"')
+
+  def exclusive_lock (self):
+    """
+    Obtain an exclusive lock on the backend.
+
+    This optional method is only used in an exceptional situation: When a
+    transactional function has ran for long enough and failed to make progress,
+    instead of continue competing against other transactions, it lock the
+    backend and try to commit its own transaction.
+    """
+
+    raise NotImplementedError ()
+
+  def exclusive_unlock (self):
+    "Release a previously obtained exclusive lock on the backend."
+    raise NotImplementedError ()
+
+  def can_lock (self):
+    return type(self).exclusive_lock is not BaseBackend.exclusive_lock

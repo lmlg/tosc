@@ -138,3 +138,9 @@ class FileBackend (BaseBackend):
             (prev is None) or (self._last_modified > prev))
     except Exception:
       return False
+
+  def exclusive_lock (self):
+    return self.lock.acquire ()
+
+  def exclusive_unlock (self):
+    return self.lock.release ()

@@ -1,4 +1,4 @@
-from time import time
+from time import time, sleep
 
 class TransactionError (Exception):
   pass
@@ -90,7 +90,7 @@ class Transaction:
                                   'due to version mismatch')
     return False
 
-def transactional (dmgr, retries = None, timeout = None):
+def transactional (dmgr, retries = None, timeout = None, use_lock = True):
   if retries is not None and (not isinstance (retries, int) or retries < 0):
     raise ValueError ('retries must be a positive integer')
 
@@ -102,7 +102,11 @@ def transactional (dmgr, retries = None, timeout = None):
   def _inner (fn):
     def _f (*args, **kwargs):
       num_retries = retries
+      cur_time = None
       deadline = None if timeout is None else time () + timeout
+      backoff = 0.005
+      long_running = False
+      backend_has_xlock = dmgr.backend.can_lock ()
 
       while True:
         try:
@@ -116,8 +120,27 @@ def transactional (dmgr, retries = None, timeout = None):
           if num_retries <= 0:
             raise TransactionRetryError ()
 
-        if deadline is not None and time () > deadline:
-          raise TransactionTimeoutError ()
+        if deadline is not None:
+          cur_time = time ()
+          if cur_time > deadline:
+            raise TransactionTimeoutError ()
+
+        backoff += 0.005
+        if cur_time is not None:
+          remaining = deadline - cur_time
+          if backoff > remaining:
+            backoff = remaining
+
+        if backoff > 0.1:
+          backoff = 0.1
+          long_running = True
+
+        sleep (backoff)
+        if long_running and backend_has_xlock and use_lock:
+          try:
+            return dmgr.run_locked (fn, args, kwargs)
+          except Exception:
+            pass
 
     return _f
   return _inner

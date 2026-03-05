@@ -228,7 +228,8 @@ def tst_transaction_error (action, exc_type, kwargs):
 
   @tosc.transactional (mgr, **kwargs)
   def transaction ():
-    thr.start ()
+    if thr.ident is None:
+      thr.start ()
     event.wait ()
     mgr.read()[0] = -1
     if action:

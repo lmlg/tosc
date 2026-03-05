@@ -97,15 +97,17 @@ class Manager:
     Make an object managed by this instance.
     """
     xid = obj.xid
+    new_objmap = self.new_objmap
+
     if xid == 0:
       obj.xid = xid = self.xid
     else:
-      tmp = self.new_objmap.get (xid)
+      tmp = new_objmap.get (xid)
       if tmp is not None and tmp is not obj:
         raise ValueError ('duplicate ID (%d) for object' % xid)
 
     obj.version = self.version
-    self.new_objmap[xid] = obj
+    new_objmap[xid] = obj
 
   def _refresh_locked (self, dfl):
     version, payload = self.backend.read ()
@@ -198,3 +200,14 @@ class Manager:
     """
     with self.transaction ():
       return dfl if self.root_obj is NIL else deepcopy (self.root_obj)
+
+  def run_locked (self, fn, args, kwargs):
+    """
+    Run a given function with the backend store locked.
+    """
+    self.backend.exclusive_lock ()
+    try:
+      with self.transaction ():
+        return fn (*args, **kwargs)
+    finally:
+      self.backend.exclusive_unlock ()
