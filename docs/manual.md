@@ -131,16 +131,7 @@ with manager.transaction():
 As long as a transaction is ongoing, the manager will not apply any changes
 made by external processes. If, on the other hand, _we_ mutate the state of
 any distributed object, then once the transaction finishes, the manager will
-see to it that the changes are propagated:
-
-```python
-obj = manager.read()
-
-with manager.transaction() as tr:
-  mutate_object(obj)
-  # once the transaction ends, the changes to `obj` will be sent through
-  # the backend and to the other nodes in the system.
-```
+see to it that the changes are propagated.
 
 Note also that transactions may be _implicit_:
 
@@ -291,6 +282,19 @@ class BackendBase
   once it's convenient (i.e: Once no transactions are in flight).
 
 ```python
+  def exclusive_lock (self)
+  def exclusive_unlock (self)
+```
+
+  These methods are optional. They acquire or release an exclusive lock on
+  the underlying store. They are meant as a last resort for long-running
+  transactions that are suffering from starvation from competing with other,
+  potentially shorter, transactions.
+
+  The 3 backends built into _tosc_ support exclusive locking, but custom
+  backends need not support it to fully utilize the exposed interfaces.
+
+```python
 class InprocBackend
 ```
 
@@ -408,6 +412,16 @@ class Manager (backend)
 
   Returns a snapshot of the currently stored object. Note that the returned
   object is no longer distributed and will be of the original type.
+
+```python
+  def run_locked (self, fn, args, kwargs) -> objet
+```
+
+  Runs a function with arguments within a critical section, holding the
+  exclusice lock on the underlying store. This function is called internally
+  by long-running, starved transactions, but it's exposed for public use
+  as well. Note, however, that the cost of an exclusive lock can be very
+  expensive, and so usage of this function should be done with care.
 
 ```python
 def transactional (manager, retries = None, timeout = None)

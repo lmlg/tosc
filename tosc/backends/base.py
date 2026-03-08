@@ -86,4 +86,5 @@ class BaseBackend:
     raise NotImplementedError ()
 
   def can_lock (self):
-    return type(self).exclusive_lock is not BaseBackend.exclusive_lock
+    attr = getattr (type (self), 'exclusive_lock')
+    return attr is not None and attr is not BaseBackend.exclusive_lock

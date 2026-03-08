@@ -30,6 +30,7 @@ class CephBackend (BaseBackend):
       raise
 
     self.cluster = cluster
+    self.pool_name = pool_name
     self.obj_name = obj_name
     self.max_retries = max_retries
     self.lock = Lock ()
@@ -42,6 +43,13 @@ class CephBackend (BaseBackend):
       self._update_version ()
     except Exception:
       self.version = 0
+
+    self.client = client
+    self.key = key
+    self.mon_host = mon_host
+
+  def copy (self):
+    return CephBackend (self.client, self.key, self.pool_name, self.obj_name)
 
   def _watch (self):
     if self.watch is not None:
