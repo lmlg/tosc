@@ -171,9 +171,6 @@ class Manager:
     Compare the version stored in the backend with an expected value and
     replace the object stored with a new one if it matches.
     """
-    if exp_version is None:
-      exp_version = self.version
-
     payload = self._payload (obj)
     ret, version = self.backend.try_write (payload, exp_version)
     if ret:
