@@ -76,7 +76,7 @@ jobs:
           # Get the monitor IP's
           MONS=$(lxc exec node3 -- sudo cat /var/snap/microceph/current/conf/ceph.conf | grep "mon host" | cut -d '=' -f2 | xargs)
           # Get the admin key
-          KEY=$(lxc exec node3 -- sudo microceph.ceph auth print-key client.admin)
+          KEY=$(lxc exec node1 -- sudo microceph.ceph auth print-key client.admin)
 
           # Finally, run the tests
           python3 scripts/func_test.py ceph admin $KEY $MONS test-pool test-image object
