@@ -40,7 +40,9 @@ jobs:
       - name: Run functional tests (Ceph backend)
         run: |
           # Install and setup LXD
-          sudo snap install lxd
+          sudo snap install lxd --channel=5.21/stable
+          sudo usermod -aG lxd $USER
+          newgrp lxd
           sudo lxd init --auto
 
           # Launch the containers.
