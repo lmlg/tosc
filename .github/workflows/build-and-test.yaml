@@ -41,6 +41,7 @@ jobs:
         run: |
           # Install and setup LXD
           sudo snap install lxd --channel=5.21/stable
+          sudo chown root:lxd /var/snap/lxd/common/lxd/unix.socket
           sudo usermod -aG lxd $USER
           newgrp lxd
           sudo lxd init --auto
