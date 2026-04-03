@@ -39,44 +39,23 @@ jobs:
 
       - name: Run functional tests (Ceph backend)
         run: |
-          # Install and setup LXD
-          sudo snap install lxd
-          sudo lxd init --auto
+          # Install microceph
+          sudo snap install microceph
+          sudo snap refresh microceph
 
-          # Launch the containers.
-          for name in node1 node2 node3; do
-            lxc launch ubuntu:24.04 $name
-          done
+          # Bootstrap single node cluster
+          sudo microceph cluster bootstrap
 
-          sleep 30
+          # Add some storage
+          sudo microceph disk add loop,1G,3
 
-          # Install Microceph in the containers
-          for name in node1 node2 node3; do
-            lxc exec $name -- sudo snap install microceph
-          done
+          # Create and initialize the pool
+          sudo microceph.ceph osd pool create test-pool
+          sudo microceph.rbd pool init test-pool
 
-          # Bootstrap the cluster and add the nodes
-          lxc exec node1 -- sudo microceph cluster bootstrap
-          TOKEN=$(lxc exec node1 -- sudo microceph cluster add node2)
-          lxc exec node2 -- sudo microceph cluster join $TOKEN
-
-          TOKEN=$(lxc exec node1 -- sudo microceph cluster add node3)
-          lxc exec node3 -- sudo microceph cluster join $TOKEN
-
-          # Add the OSDs
-          for name in node1 node2 node3; do
-            lxc exec $name -- sudo microceph disk add loop,1G,1
-          done
-
-          # Create the pool and image
-          lxc exec node1 -- sudo microceph.ceph osd pool create test-pool
-          lxc exec node1 -- sudo microceph.rbd pool init test-pool
-          lxc exec node1 -- sudo microceph.rbd create --size 1024 test-pool/test-image
-
-          # Get the monitor IP's
-          MONS=$(lxc exec node3 -- sudo cat /var/snap/microceph/current/conf/ceph.conf | grep "mon host" | cut -d '=' -f2 | xargs)
-          # Get the admin key
-          KEY=$(lxc exec node3 -- sudo microceph.ceph auth print-key client.admin)
+          # Get the monitor IP and admin key.
+          MON=$(sudo cat /var/snap/microceph/current/conf/ceph.conf | grep "mon host" | cut -d '=' -f2 | xargs)
+          KEY=$(sudo microceph.ceph auth print-key client.admin)
 
           # Finally, run the tests
-          python3 scripts/func_test.py ceph admin $KEY $MONS test-pool test-image object
+          python3 scripts/func_test.py ceph admin $KEY $MON test-pool object
