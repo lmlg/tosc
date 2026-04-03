@@ -117,7 +117,7 @@ def transactional (dmgr, retries = None, timeout = None, use_lock = True):
 
         if num_retries is not None:
           num_retries -= 1
-          if num_retries <= 0:
+          if num_retries < 0:
             raise TransactionRetryError ()
 
         if deadline is not None:

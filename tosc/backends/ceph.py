@@ -49,7 +49,8 @@ class CephBackend (BaseBackend):
     self.mon_host = mon_host
 
   def copy (self):
-    return CephBackend (self.client, self.key, self.pool_name, self.obj_name)
+    return CephBackend (self.client, self.key, self.mon_host,
+                        self.pool_name, self.obj_name)
 
   def _watch (self):
     if self.watch is not None:
@@ -158,8 +159,9 @@ class CephBackend (BaseBackend):
 
   def target_wait (self):
     with self.lock:
-      while self.recv_id is None:
+      if self.recv_id is None:
         self.cond.wait (5)
+
       if self.recv_id is not None:
         ret = self.recv_id
         self.recv_id = None

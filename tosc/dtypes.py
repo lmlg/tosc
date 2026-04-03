@@ -128,7 +128,7 @@ _SKIP_ATTRS = ('__class__', '__init__', '__new__', '__setattr__',
 _OPERATORS = ('__eq__', '__lt__', '__gt__', '__le__', '__ge__',
               '__add__', '__sub__', '__mul__', '__and__', '__or__',
               '__xor__', '__radd__', '__rsub__','__rmul__','__rand__',
-              '__rior__', '__rxor__')
+              '__ror__', '__rxor__')
 
 _MUTABLES = ('append', 'clear', 'extend', 'insert', 'pop', 'remove',
              'reverse', 'sort',   # list

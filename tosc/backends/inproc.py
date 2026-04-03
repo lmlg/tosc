@@ -52,7 +52,7 @@ class InprocBackend (BaseBackend):
 
     with data.lock:
       while version == data.version:
-        data.cond.wait ()
+        data.cond.wait (0.2)
       return version < data.version and data.notifier != self.unique_id
 
   def exclusive_lock (self):

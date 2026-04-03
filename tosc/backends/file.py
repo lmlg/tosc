@@ -53,7 +53,7 @@ class FileBackend (BaseBackend):
     self.lock = FileLock (self.lock_path)
     self._start ()
     self.interval = _DFL_STAT_INTERVAL
-    self.dir_path = os.path.dirname (path)
+    self.dir_path = os.path.dirname (path) or '.'
 
     if os.name == 'posix':
       self._determine_stat_interval ()

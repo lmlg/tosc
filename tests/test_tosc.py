@@ -165,6 +165,11 @@ def test_pickle_custom ():
   c.x = c2.x = '???'
   assert c2.fn (-1) == c.fn (-1)
 
+def test_try_write ():
+  mgr = _make_mgr ()
+  assert mgr.try_write ({'a': 1, 'b': None}, None)
+  assert not mgr.try_write (101, None)
+
 def test_simple_modification ():
   mgr = _make_mgr ()
   mgr.write ({'a': 1, 'b': None})
