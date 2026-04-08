@@ -2,6 +2,7 @@ import tosc
 
 import pytest
 
+import collections
 import threading
 import time
 
@@ -272,3 +273,13 @@ def test_snapshot ():
   c = Custom ([[1, 2], "abc"], None)
   mgr.write (c)
   assert c == mgr.snapshot ()
+
+def test_extension_types ():
+  mgr = _make_mgr ()
+  dq = collections.deque([1, "abc", 3.14])
+  mgr.write (dq)
+  new = mgr.read ()
+  assert dq == new
+  new.append (None)
+  assert mgr.read () == new
+  assert new[-1] is None

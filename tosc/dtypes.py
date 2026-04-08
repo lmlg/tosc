@@ -124,6 +124,7 @@ def _make_mutable_method (attr):
 _SKIP_ATTRS = ('__class__', '__init__', '__new__', '__setattr__',
                '__getattr__', '__getattribute__', '__call__',
                '__getstate__', '__setstate__', '__reduce__', '__reduce_ex__')
+SKIP_ATTRS = _SKIP_ATTRS
 
 _OPERATORS = ('__eq__', '__lt__', '__gt__', '__le__', '__ge__',
               '__add__', '__sub__', '__mul__', '__and__', '__or__',
@@ -225,3 +226,7 @@ class DDescriptor:
 
   def __set__ (self, _, value):
     self.values[self.index] = value
+
+class DXtype (DObject):
+  "Base type for distributed extension types."
+  pass

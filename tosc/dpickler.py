@@ -1,7 +1,7 @@
 from .dtypes import *
 
 import io
-from pickle import (Pickler, Unpickler, UnpicklingError)
+from pickle import (dumps, loads, Pickler, Unpickler)
 
 _DBUILTIN_MAP = {
   list: DList,
@@ -21,10 +21,30 @@ def _make_any (typ, attrs, dmgr):
   ntype.__slots__ = tuple (descriptors.keys ())
   return ntype.__new__ (ntype)
 
+def _make_xmethod (method):
+  return lambda self, *args, **kwargs: method (self.subobj, *args, **kwargs)
+
+def _make_xtype (bvec):
+  obj = loads (bvec)
+  otype = type (obj)
+  ntype = type ("distributed-" + otype.__name__, (DXtype,), {})
+  ntype.__slots__ = ("subobj",)
+
+  for attr in dir (otype):
+    if attr in SKIP_ATTRS:
+      continue
+
+    method = getattr (otype, attr)
+    setattr (ntype, attr, _make_xmethod (method))
+
+  ret = ntype.__new__ (ntype)
+  ret.subobj = obj
+  return ret
+
 # These types and functions don't need to be maintained externally from
 # picklers, but it's useful to do so to keep the resulting byte array small
 # since they are called a lot.
-_DTYPES = (DList, DSet, DDict, DByteArray, DObject, _make_any)
+_DTYPES = (DList, DSet, DDict, DByteArray, DObject, _make_any, _make_xtype)
 
 class DPickler (Pickler):
   def __init__ (self, fileobj, dmgr):
@@ -37,7 +57,7 @@ class DPickler (Pickler):
 
     try:
       return _DTYPES.index (obj)
-    except ValueError:
+    except (ValueError, TypeError):
       pass
 
 class DUnpickler (Unpickler):
@@ -75,6 +95,13 @@ class _Wrapper:
   def __reduce__ (self):
     return (_make_any, (self._type, self._attrs, self._dmgr), self._dmgr)
 
+class _XWrapper:
+  def __init__ (self, obj):
+    self.obj = obj.subobj if isinstance (obj, DXtype) else obj
+
+  def __reduce__ (self):
+    return (_make_xtype, (dumps (self.obj),), None)
+
 def make_pickable (obj, dmgr):
   ty = type (obj)
   if (ty in (int, float, str, bytes, bool, tuple, frozenset) or
@@ -96,4 +123,7 @@ def make_pickable (obj, dmgr):
     # As such, index -3 is the one to fetch to get the desired type.
     ty = ty.__mro__[-3]
 
-  return _Wrapper (ty, _obj_attrs (obj), dmgr)
+  try:
+    return _Wrapper (ty, _obj_attrs (obj), dmgr)
+  except TypeError:
+    return _XWrapper (obj)
