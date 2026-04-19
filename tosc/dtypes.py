@@ -191,12 +191,12 @@ DByteArray = _make_dbuiltin (bytearray, 'DByteArray', _deepcopy_dbytearray)
 
 class DAny:
   """
-  Distributed 'Any' type - This is the base class of non-builtin types that
-  are pickled by the distributed sub-classes. The class itself is only used
-  to control what '__setstate__' does - Because the descriptors are linked to
-  the distributed manager upon object creation, we don't need to do anything
-  else here. However, since arbitrary objects can be pickled, we need to
-  overwrite this method here to prevent further code from being executed.
+  Distributed 'Any' type - This is the base class of non-builtin, non-extension
+  types that are pickled by the distributed sub-classes. The class itself is
+  only used to control what '__setstate__' does - Because the descriptors are
+  linked to the distributed manager upon object creation, we don't need to do
+  anything else here. However, since arbitrary objects can be pickled, we need
+  to overwrite this method here to prevent further code from being executed.
   """
 
   def __setstate__ (self, dmgr):

@@ -107,6 +107,7 @@ class Manager:
         raise ValueError ('duplicate ID (%d) for object' % xid)
 
     obj.version = self.version
+    obj.dmgr = self
     new_objmap[xid] = obj
 
   def _refresh_locked (self, dfl):

@@ -10,9 +10,10 @@ _DBUILTIN_MAP = {
   bytearray: DByteArray,
 }
 
-def _make_any (typ, attrs, dmgr):
-  values = DList (list (attrs.values ()))
-  dmgr.link (values)
+def _make_any (typ, attrs, dmgr, values):
+  if values is None:
+    values = DList (list (attrs.values ()))
+    dmgr.link (values)
 
   descriptors = {k: DDescriptor (values, index)
                  for index, k in enumerate (attrs)}
@@ -87,13 +88,15 @@ def _obj_attrs (obj):
   return ret if isinstance (ret, dict) else dict (ret)
 
 class _Wrapper:
-  def __init__ (self, typ, attrs, dmgr):
+  def __init__ (self, typ, attrs, dmgr, values = None):
     self._type = typ
     self._attrs = attrs
     self._dmgr = dmgr
+    self._values = values
 
   def __reduce__ (self):
-    return (_make_any, (self._type, self._attrs, self._dmgr), self._dmgr)
+    return (_make_any, (self._type, self._attrs,
+                        self._dmgr, self._values), self._dmgr)
 
 class _XWrapper:
   def __init__ (self, obj):
@@ -118,12 +121,17 @@ def make_pickable (obj, dmgr):
   elif ty is bytearray:
     return make (obj, 0, dmgr)
 
+  values = None
+
   if isinstance (obj, DAny):
     # The MRO looks something like this: [..., actual-type, DAny, object]
     # As such, index -3 is the one to fetch to get the desired type.
     ty = ty.__mro__[-3]
+    slots = getattr (obj, '__slots__', None)
+    if slots:
+      values = getattr(type (obj), slots[0]).values
 
   try:
-    return _Wrapper (ty, _obj_attrs (obj), dmgr)
+    return _Wrapper (ty, _obj_attrs (obj), dmgr, values)
   except TypeError:
     return _XWrapper (obj)
